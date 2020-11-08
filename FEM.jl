@@ -19,8 +19,10 @@ struct Element
     nodeIds::Vector
 end
 
-struct Elements
-    vector::Vector{Element}
+struct Triplets
+    x::Array{Int}
+    y::Array{Int}
+    val::Array{Float64}
 end
 
 @enum type UX=1 UY=2 UXY=3
@@ -30,9 +32,6 @@ struct Constraint
     type::type
 end
 
-struct Constraints
-    vector::Vector{Constraint}
-end
 
 function readindata(constraintsfile, nodelistfile, elementlistfile, forcesfile)
     constraints = readdlm(constraintsfile, ' ', Int, '\n')
@@ -64,21 +63,23 @@ function CalculateStiffnessMaitrix!(element, D, triplets)
 
     K = transpose(element.B) * D * element.B * abs(det(C)) / 2.0
 
-    trplt11 = (1, 1, 1.0)
-    trplt12 = (1, 1, 1.0)
-    trplt21 = (1, 1, 1.0)
-    trplt22 = (1, 1, 1.0)
-
     for i in 1:3
         for j in 1:3
-            trplt11 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 1, K[2 * i - 1, 2 * j - 1])
-            trplt12 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 2, K[2 * i - 1, 2 * j + 0])
-            trplt21 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 1, K[2 * i + 0, 2 * j - 1])
-            trplt22 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 2, K[2 * i + 0, 2 * j + 0])
-            push!(triplets,trplt11)
-            push!(triplets,trplt12)
-            push!(triplets,trplt21)
-            push!(triplets,trplt22)
+            push!(triplets.x, 2 * element.nodeIds[i] + 1)
+            push!(triplets.y, 2 * element.nodeIds[j] + 1)
+            push!(triplets.val, K[2 * i - 1, 2 * j - 1])
+
+            push!(triplets.x, 2 * element.nodeIds[i] + 1)
+            push!(triplets.y, 2 * element.nodeIds[j] + 2)
+            push!(triplets.val, K[2 * i - 1, 2 * j + 0])
+
+            push!(triplets.x, 2 * element.nodeIds[i] + 2)
+            push!(triplets.y, 2 * element.nodeIds[j] + 1)
+            push!(triplets.val, K[2 * i + 0, 2 * j - 1])
+
+            push!(triplets.x, 2 * element.nodeIds[i] + 2)
+            push!(triplets.y, 2 * element.nodeIds[j] + 2)
+            push!(triplets.val, K[2 * i + 0, 2 * j + 0])
         end
 
 
@@ -87,23 +88,22 @@ function CalculateStiffnessMaitrix!(element, D, triplets)
 end
 
 function ApplyConstraints!(M, constraints)
-    for i in 1:length(constraints.vector)
-        index = 2 * constraints.vector[i].node
+    for i in 1:length(constraints)
+        index = 2 * constraints[i].node
         index += 1
-        if constraints.vector[i].type == UX || constraints.vector[i].type == UXY 
+        if constraints[i].type == UX || constraints[i].type == UXY 
             M[:,index] .= 0
             M[index,:] .= 0
             M[index,index] = 1
         end
         index += 1
-        if constraints.vector[i].type == UY || constraints.vector[i].type == UXY
+        if constraints[i].type == UY || constraints[i].type == UXY
             M[:,index] .= 0
             M[index,:] .= 0
             M[index,index] = 1
         end
     end
 end
-
 
 input = readindata("constraints.inp", "nodelist.inp", "elementlist.inp", "forces.inp")
 
@@ -114,21 +114,21 @@ D = [1.0 materialdata.ν 0.0; materialdata.ν 1.0 0.0; 0.0 0.0 (1-materialdata.�
 D *= materialdata.E / (1 - materialdata.ν^2)
 
 
-elements = Elements(Vector{Element}(undef, size(input.elements)[1]))
+elements = Vector{Element}(undef, size(input.elements)[1])
 
 
 for i in 1:size(input.elements)[1]
     nodeIds = input.elements[i,:]
-    elements.vector[i] = Element(zeros(Float64,3,6),nodeIds)
+    elements[i] = Element(zeros(Float64,3,6),nodeIds)
 end
 
-defualtconstraint = defaultconstraint = Constraint(0,UXY)
-constraints = Constraints(fill(defaultconstraint,size(input.constraints)[1]))
+defaultconstraint = Constraint(0,UXY)
+constraints = fill(defaultconstraint,size(input.constraints)[1])
 
 for i in 1:size(input.constraints)[1]
     node = input.constraints[i,1]
     constraint_type = type(input.constraints[i,2])
-    constraints.vector[i] = Constraint(node,constraint_type)
+    constraints[i] = Constraint(node,constraint_type)
 end
 
 loads = zeros(Float64,2*size(input.nodes)[1])
@@ -139,23 +139,13 @@ for i in 1:size(input.forces)[1]
     loads[2*node+2] = input.forces[i,3]
 end
 
-triplets = Vector{Tuple{Int64,Int64,Float64}}(undef,0)
+triplets = Triplets(Array{Int}(undef,0),Array{Int}(undef,0),Array{Float64}(undef,0))
 
 for i in 1:size(input.elements)[1]
-    CalculateStiffnessMaitrix!(elements.vector[i], D, triplets)
+    CalculateStiffnessMaitrix!(elements[i], D, triplets)
 end
 
-X = Vector{Int}(undef,0)
-Y = Vector{Int}(undef,0)
-val = Vector{Float64}(undef,0)
-
-for i in 1:length(triplets)
-    push!(X,triplets[i][1])
-    push!(Y,triplets[i][2])
-    push!(val,triplets[i][3])
-end
-
-globalK = sparse(X,Y,val, 2*size(input.nodes)[1],2*size(input.nodes)[1])
+globalK = sparse(triplets.x,triplets.y,triplets.val, 2*size(input.nodes)[1],2*size(input.nodes)[1])
 
 ApplyConstraints!(globalK, constraints)
 
