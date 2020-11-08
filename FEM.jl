@@ -33,16 +33,12 @@ end
 struct Constraints
     vector::Vector{Constraint}
 end
-        
+
 function readindata(constraintsfile, nodelistfile, elementlistfile, forcesfile)
     constraints = readdlm(constraintsfile, ' ', Int, '\n')
- #   number_of_constraints = size(constraints)[1]
     nodelist = readdlm(nodelistfile, ' ', Float64, '\n')
- #   number_of_nodes = size(nodes)[1]
     elements = readdlm(elementlistfile, ' ', Int, '\n')
-#    number_of_elements = size(elements)[1]
     forces = readdlm(forcesfile, ' ', Float64, '\n')
-#    number_of_forces = size(forces)[1]
     inp = inputdata(constraints, nodelist, elements, forces)
     return inp
 end
@@ -56,30 +52,29 @@ function CalculateStiffnessMaitrix!(element, D, triplets)
     C = hcat(C,y)
 
     IC = inv(C)
-    
 
     for i in 1:3
         element.B[1, 2 * i - 1] = IC[2, i]
         element.B[1, 2 * i + 0] = 0.0
         element.B[2, 2 * i - 1] = 0.0
         element.B[2, 2 * i + 0] = IC[3, i]
-		element.B[3, 2 * i - 1] = IC[3, i]
-		element.B[3, 2 * i + 0] = IC[2, i]
+        element.B[3, 2 * i - 1] = IC[3, i]
+        element.B[3, 2 * i + 0] = IC[2, i]
     end
-    
+
     K = transpose(element.B) * D * element.B * abs(det(C)) / 2.0
 
     trplt11 = (1, 1, 1.0)
     trplt12 = (1, 1, 1.0)
     trplt21 = (1, 1, 1.0)
     trplt22 = (1, 1, 1.0)
-    
+
     for i in 1:3
         for j in 1:3
             trplt11 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 1, K[2 * i - 1, 2 * j - 1])
             trplt12 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 2, K[2 * i - 1, 2 * j + 0])
-			trplt21 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 1, K[2 * i + 0, 2 * j - 1])
-			trplt22 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 2, K[2 * i + 0, 2 * j + 0])
+            trplt21 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 1, K[2 * i + 0, 2 * j - 1])
+            trplt22 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 2, K[2 * i + 0, 2 * j + 0])
             push!(triplets,trplt11)
             push!(triplets,trplt12)
             push!(triplets,trplt21)
