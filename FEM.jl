@@ -33,7 +33,7 @@ end
 struct Constraints
     vector::Vector{Constraint}
 end
-
+        
 function readindata(constraintsfile, nodelistfile, elementlistfile, forcesfile)
     constraints = readdlm(constraintsfile, ' ', Int, '\n')
  #   number_of_constraints = size(constraints)[1]
@@ -56,42 +56,44 @@ function CalculateStiffnessMaitrix!(element, D, triplets)
     C = hcat(C,y)
 
     IC = inv(C)
+    
 
     for i in 1:3
         element.B[1, 2 * i - 1] = IC[2, i]
         element.B[1, 2 * i + 0] = 0.0
         element.B[2, 2 * i - 1] = 0.0
         element.B[2, 2 * i + 0] = IC[3, i]
-        element.B[3, 2 * i - 1] = IC[3, i]
-        element.B[3, 2 * i + 0] = IC[2, i]
+		element.B[3, 2 * i - 1] = IC[3, i]
+		element.B[3, 2 * i + 0] = IC[2, i]
     end
-
+    
     K = transpose(element.B) * D * element.B * abs(det(C)) / 2.0
 
     trplt11 = (1, 1, 1.0)
     trplt12 = (1, 1, 1.0)
     trplt21 = (1, 1, 1.0)
     trplt22 = (1, 1, 1.0)
-
+    
     for i in 1:3
         for j in 1:3
-            trplt11 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 1, K[2 * i - 0, 2 * j - 1])
-            trplt12 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 2, K[2 * i - 0, 2 * j + 0])
-            trplt21 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 1, K[2 * i + 0, 2 * j - 1])
-            trplt22 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 2, K[2 * i + 0, 2 * j + 0])
+            trplt11 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 1, K[2 * i - 1, 2 * j - 1])
+            trplt12 = (2 * element.nodeIds[i] + 1, 2 * element.nodeIds[j] + 2, K[2 * i - 1, 2 * j + 0])
+			trplt21 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 1, K[2 * i + 0, 2 * j - 1])
+			trplt22 = (2 * element.nodeIds[i] + 2, 2 * element.nodeIds[j] + 2, K[2 * i + 0, 2 * j + 0])
+            push!(triplets,trplt11)
+            push!(triplets,trplt12)
+            push!(triplets,trplt21)
+            push!(triplets,trplt22)
         end
 
-        push!(triplets,trplt11)
-        push!(triplets,trplt12)
-        push!(triplets,trplt21)
-        push!(triplets,trplt22)
+
     end
 
 end
 
 function ApplyConstraints!(M, constraints)
     for i in 1:length(constraints.vector)
-        index = constraints.vector[i].node
+        index = 2 * constraints.vector[i].node
         index += 1
         if constraints.vector[i].type == UX || constraints.vector[i].type == UXY 
             M[:,index] .= 0
@@ -106,6 +108,7 @@ function ApplyConstraints!(M, constraints)
         end
     end
 end
+
 
 input = readindata("constraints.inp", "nodelist.inp", "elementlist.inp", "forces.inp")
 
@@ -157,6 +160,8 @@ for i in 1:length(triplets)
     push!(val,triplets[i][3])
 end
 
-globalK = sparse(X,Y,val)
+globalK = sparse(X,Y,val, 2*size(input.nodes)[1],2*size(input.nodes)[1])
 
 ApplyConstraints!(globalK, constraints)
+
+x = globalK\loads
