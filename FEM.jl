@@ -42,9 +42,9 @@ function readindata(constraintsfile, nodelistfile, elementlistfile, forcesfile)
     return inp
 end
 
-function CalculateStiffnessMaitrix!(element, D, triplets)
-    x = [input.nodes[element.nodeIds[1]+1,1],input.nodes[element.nodeIds[2]+1,1], input.nodes[element.nodeIds[3]+1,1]]
-    y = [input.nodes[element.nodeIds[1]+1,2],input.nodes[element.nodeIds[2]+1,2], input.nodes[element.nodeIds[3]+1,2]]
+function CalculateStiffnessMaitrix!(nodes, element, D, triplets)
+    x = [nodes[element.nodeIds[1]+1,1],nodes[element.nodeIds[2]+1,1], nodes[element.nodeIds[3]+1,1]]
+    y = [nodes[element.nodeIds[1]+1,2],nodes[element.nodeIds[2]+1,2], nodes[element.nodeIds[3]+1,2]]
 
     ones = [1, 1, 1]
     C = hcat(ones, x)
@@ -140,9 +140,10 @@ for i in 1:size(input.forces)[1]
 end
 
 triplets = Triplets(Array{Int}(undef,0),Array{Int}(undef,0),Array{Float64}(undef,0))
+nodes = input.nodes
 
 for i in 1:size(input.elements)[1]
-    CalculateStiffnessMaitrix!(elements[i], D, triplets)
+    CalculateStiffnessMaitrix!(nodes, elements[i], D, triplets)
 end
 
 globalK = sparse(triplets.x,triplets.y,triplets.val, 2*size(input.nodes)[1],2*size(input.nodes)[1])
