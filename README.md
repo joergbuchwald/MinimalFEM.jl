@@ -1,3 +1,3 @@
 # MinimalFEM.jl
 
-Inspriation/ideas taken from: https://podgorskiy.com/spblog/304/writing-a-fem-solver-in-less-the-180-lines-of-code
+Inspriation/ideas taken from: https://sudonull.com/post/93035-Writing-an-FEM-calculator-in-less-than-180-lines-of-code
